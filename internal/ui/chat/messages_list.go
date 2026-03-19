@@ -95,6 +95,12 @@ func newMessagesList(cfg *config.Config, chatView *Model) *messagesList {
 	ml.SetBuilder(ml.buildItem)
 	ml.SetChangedFunc(ml.onRowCursorChanged)
 	ml.SetTrackEnd(true)
+	ml.SetKeybinds(list.Keybinds{
+		ScrollUp:     cfg.Keybinds.MessagesList.ScrollUp.Keybind,
+		ScrollDown:   cfg.Keybinds.MessagesList.ScrollDown.Keybind,
+		ScrollTop:    cfg.Keybinds.MessagesList.ScrollTop.Keybind,
+		ScrollBottom: cfg.Keybinds.MessagesList.ScrollBottom.Keybind,
+	})
 	ml.SetScrollBarVisibility(cfg.Theme.ScrollBar.Visibility.ScrollBarVisibility)
 	ml.SetScrollBar(tview.NewScrollBar().
 		SetTrackStyle(cfg.Theme.ScrollBar.TrackStyle.Style).
@@ -838,22 +844,10 @@ func (ml *messagesList) selectedMessage() (*discord.Message, error) {
 	return &ml.messages[cursor], nil
 }
 
-func (ml *messagesList) HandleEvent(event tcell.Event) tview.Command {
+func (ml *messagesList) HandleEvent(event tview.Event) tview.Command {
 	switch event := event.(type) {
 	case *tview.KeyEvent:
 		switch {
-		case keybind.Matches(event, ml.cfg.Keybinds.MessagesList.ScrollUp.Keybind):
-			ml.ScrollUp()
-			return nil
-		case keybind.Matches(event, ml.cfg.Keybinds.MessagesList.ScrollDown.Keybind):
-			ml.ScrollDown()
-			return nil
-		case keybind.Matches(event, ml.cfg.Keybinds.MessagesList.ScrollTop.Keybind):
-			ml.ScrollToStart()
-			return nil
-		case keybind.Matches(event, ml.cfg.Keybinds.MessagesList.ScrollBottom.Keybind):
-			ml.ScrollToEnd()
-			return nil
 		case keybind.Matches(event, ml.cfg.Keybinds.MessagesList.Cancel.Keybind):
 			ml.clearSelection()
 			return nil
@@ -896,8 +890,7 @@ func (ml *messagesList) HandleEvent(event tcell.Event) tview.Command {
 			ml.confirmDelete()
 			return nil
 		}
-		// Do not fall through to List defaults for unmatched keys.
-		return nil
+		return ml.Model.HandleEvent(event)
 	}
 	return ml.Model.HandleEvent(event)
 }
@@ -1018,7 +1011,7 @@ func (ml *messagesList) yankMessageID() tview.Command {
 		return nil
 	}
 
-	return func() tcell.Event {
+	return func() tview.Event {
 		if err := clipboard.Write(clipboard.FmtText, []byte(msg.ID.String())); err != nil {
 			slog.Error("failed to copy message id", "err", err)
 		}
@@ -1033,7 +1026,7 @@ func (ml *messagesList) yankContent() tview.Command {
 		return nil
 	}
 
-	return func() tcell.Event {
+	return func() tview.Event {
 		if err := clipboard.Write(clipboard.FmtText, []byte(msg.Content)); err != nil {
 			slog.Error("failed to copy message content", "err", err)
 		}
@@ -1048,7 +1041,7 @@ func (ml *messagesList) yankURL() tview.Command {
 		return nil
 	}
 
-	return func() tcell.Event {
+	return func() tview.Event {
 		if err := clipboard.Write(clipboard.FmtText, []byte(msg.URL())); err != nil {
 			slog.Error("failed to copy message url", "err", err)
 		}
@@ -1289,7 +1282,7 @@ func (ml *messagesList) deleteSelectedMessage() tview.Command {
 		return nil
 	}
 
-	return func() tcell.Event {
+	return func() tview.Event {
 		if selectedMessage.GuildID.IsValid() {
 			me, _ := ml.chatView.state.Cabinet.Me()
 			if selectedMessage.Author.ID != me.ID && !ml.chatView.state.HasPermissions(selectedMessage.ChannelID, discord.PermissionManageMessages) {
