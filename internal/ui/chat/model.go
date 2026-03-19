@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ayn2op/discordo/internal/config"
@@ -49,6 +50,8 @@ type Model struct {
 
 	confirmModalDone          func(label string)
 	confirmModalPreviousFocus tview.Primitive
+
+	appFocused atomic.Bool
 
 	app   *tview.Application
 	cfg   *config.Config
@@ -258,6 +261,9 @@ func (m *Model) HandleEvent(event tcell.Event) tview.Command {
 			m.togglePicker()
 			return nil
 		}
+	case *tcell.EventFocus:
+		m.appFocused.Store(event.Focused)
+		return nil
 	case *closeLayerEvent:
 		if m.HasLayer(event.name) {
 			m.HideLayer(event.name)

@@ -147,7 +147,9 @@ func (m *Model) onMessageCreate(message *gateway.MessageCreateEvent) {
 		m.app.QueueUpdateDraw(func() {
 			m.messagesList.addMessage(message.Message)
 		})
-	} else {
+	}
+
+	if !m.appFocused.Load() || selectedChannel == nil || selectedChannel.ID != message.ChannelID {
 		if err := notifications.Notify(m.state, message, m.cfg); err != nil {
 			slog.Error("failed to notify", "err", err, "channel_id", message.ChannelID, "message_id", message.ID)
 		}

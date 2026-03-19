@@ -3,17 +3,15 @@
 package notifications
 
 import (
-	gosxnotifier "github.com/deckarep/gosx-notifier"
+	"fmt"
+	"os/exec"
 )
 
-func sendDesktopNotification(title string, message string, image string, playSound bool, _ int) error {
-	notification := gosxnotifier.NewNotification(message)
-	notification.Title = title
-	notification.ContentImage = image
-
+func sendDesktopNotification(title string, message string, _ string, playSound bool, _ int) error {
+	script := fmt.Sprintf("display notification %q with title %q", message, title)
 	if playSound {
-		notification.Sound = gosxnotifier.Default
+		script += " sound name \"default\""
 	}
 
-	return notification.Push()
+	return exec.Command("osascript", "-e", script).Run()
 }

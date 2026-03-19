@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/ayn2op/discordo/internal/config"
 	"github.com/ayn2op/discordo/internal/consts"
@@ -14,6 +15,40 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/ningen/v3"
 )
+
+var mentionRegex = regexp.MustCompile(`<@!?(\d+)>`)
+
+func resolveMentions(state *ningen.State, content string, guildID discord.GuildID, mentions []discord.GuildUser) string {
+	return mentionRegex.ReplaceAllStringFunc(content, func(match string) string {
+		submatches := mentionRegex.FindStringSubmatch(match)
+		if len(submatches) < 2 {
+			return match
+		}
+
+		sf, err := discord.ParseSnowflake(submatches[1])
+		if err != nil {
+			return match
+		}
+		userID := discord.UserID(sf)
+
+		if guildID.IsValid() {
+			if member, err := state.Cabinet.Member(guildID, userID); err == nil {
+				if member.Nick != "" {
+					return "@" + member.Nick
+				}
+				return "@" + member.User.DisplayOrUsername()
+			}
+		}
+
+		for _, u := range mentions {
+			if u.ID == userID {
+				return "@" + u.DisplayOrUsername()
+			}
+		}
+
+		return match
+	})
+}
 
 func Notify(state *ningen.State, message *gateway.MessageCreateEvent, cfg *config.Config) error {
 	if !cfg.Notifications.Enabled || cfg.Status == discord.DoNotDisturbStatus {
@@ -54,6 +89,8 @@ func Notify(state *ningen.State, message *gateway.MessageCreateEvent, cfg *confi
 
 		title += " (#" + channel.Name + ", " + guild.Name + ")"
 	}
+
+	content = resolveMentions(state, content, channel.GuildID, message.Mentions)
 
 	hash := message.Author.Avatar
 	if hash == "" {
