@@ -8,6 +8,10 @@ import (
 
 const Name = "discordo"
 
+// UpstreamCommit is the latest commit hash of the upstream repo (ayn2op/discordo).
+// Set at build time via ldflags from origin/main.
+var UpstreamCommit = "unknown"
+
 var cacheDir string
 
 func CacheDir() string {

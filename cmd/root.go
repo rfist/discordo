@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/ayn2op/discordo/internal/config"
+	"github.com/ayn2op/discordo/internal/consts"
 	"github.com/ayn2op/discordo/internal/logger"
 	"github.com/ayn2op/discordo/internal/ui/root"
 	"github.com/ayn2op/tview"
@@ -14,16 +15,24 @@ import (
 )
 
 var (
-	configPath string
-	logPath    string
-	logLevel   string
+	configPath  string
+	logPath     string
+	logLevel    string
+	showVersion bool
 )
 
 func Run() error {
 	flag.StringVar(&configPath, "config-path", config.DefaultPath(), "path of the configuration file")
 	flag.StringVar(&logPath, "log-path", logger.DefaultPath(), "path of the log file")
 	flag.StringVar(&logLevel, "log-level", "info", "log level")
+	flag.BoolVar(&showVersion, "version", false, "print version and exit")
+	flag.BoolVar(&showVersion, "v", false, "print version and exit")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Printf("%s v%s (upstream: %s)\n", consts.Name, consts.ForkVersion, consts.UpstreamCommit)
+		return nil
+	}
 
 	var level slog.Level
 	switch logLevel {
