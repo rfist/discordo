@@ -37,7 +37,7 @@ func setToken(token string) tview.Cmd {
 	return func() tview.Event {
 		if err := keyring.SetToken(token); err != nil {
 			slog.Error("failed to set token to keyring", "err", err)
-			return tcell.NewEventError(err)
+			return nil
 		}
 		return nil
 	}
@@ -47,7 +47,7 @@ func deleteToken() tview.Cmd {
 	return func() tview.Event {
 		if err := keyring.DeleteToken(); err != nil {
 			slog.Error("failed to delete token from keyring", "err", err)
-			return tcell.NewEventError(err)
+			return nil
 		}
 		return nil
 	}
@@ -57,7 +57,7 @@ func initClipboard() tview.Cmd {
 	return func() tview.Event {
 		if err := clipboard.Init(); err != nil {
 			slog.Error("failed to init clipboard", "err", err)
-			return tcell.NewEventError(err)
+			return nil
 		}
 		return nil
 	}

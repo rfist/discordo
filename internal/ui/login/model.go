@@ -43,11 +43,11 @@ func NewModel(cfg *config.Config) *Model {
 
 func (m *Model) Update(event tview.Event) tview.Cmd {
 	switch event := event.(type) {
-	case *tcell.EventError:
+	case *errEvent:
 		if m.HasLayer(errorLayerName) {
 			return nil
 		}
-		return m.showErrorDialog(event)
+		return m.showErrorDialog(event.err)
 	case *tview.ModalDoneEvent:
 		if !m.HasLayer(errorLayerName) {
 			return nil

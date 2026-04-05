@@ -101,9 +101,9 @@ func (m *Model) Update(event tview.Event) tview.Cmd {
 		}
 		return tview.Batch(m.heartbeat(), m.sendHeartbeat())
 
-	case *tcell.EventError:
-		m.msg = event.Error()
-		return tview.Batch(m.close(), tview.Cmd(func() tview.Event { return event }))
+	case *errEvent:
+		m.msg = event.err.Error()
+		return m.close()
 	}
 
 	return nil

@@ -14,7 +14,7 @@ func (m *Model) openState() tview.Cmd {
 	return func() tview.Event {
 		if err := m.state.Open(context.Background()); err != nil {
 			slog.Error("failed to open chat state", "err", err)
-			return tcell.NewEventError(err)
+			return nil
 		}
 		return nil
 	}
@@ -25,7 +25,7 @@ func (m *Model) closeState() tview.Cmd {
 		if m.state != nil {
 			if err := m.state.Close(); err != nil {
 				slog.Error("failed to close the session", "err", err)
-				return tcell.NewEventError(err)
+				return nil
 			}
 		}
 		return nil

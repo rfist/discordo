@@ -19,6 +19,17 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
+type errEvent struct {
+	tcell.EventTime
+	err error
+}
+
+func newErrEvent(err error) *errEvent {
+	event := &errEvent{err: err}
+	event.SetEventNow()
+	return event
+}
+
 type TokenEvent struct {
 	tcell.EventTime
 	Token string
@@ -39,7 +50,7 @@ func (m *Model) connect() tview.Cmd {
 		headers.Set("User-Agent", http.BrowserUserAgent)
 		conn, _, err := websocket.DefaultDialer.Dial(remoteAuthGatewayURL, headers)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 		return &connCreateEvent{conn: conn}
 	}
@@ -49,7 +60,7 @@ func (m *Model) close() tview.Cmd {
 	return func() tview.Event {
 		if m.conn != nil {
 			if err := m.conn.Close(); err != nil {
-				return tcell.NewEventError(err)
+				return newErrEvent(err)
 			}
 		}
 		return &connCloseEvent{}
@@ -92,14 +103,14 @@ func (m *Model) listen() tview.Cmd {
 
 		_, data, err := m.conn.ReadMessage()
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 
 		var payload struct {
 			Op string `json:"op"`
 		}
 		if err := json.Unmarshal(data, &payload); err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 
 		switch payload.Op {
@@ -109,7 +120,7 @@ func (m *Model) listen() tview.Cmd {
 				TimeoutMS         int `json:"timeout_ms"`
 			}
 			if err := json.Unmarshal(data, &payload); err != nil {
-				return tcell.NewEventError(err)
+				return newErrEvent(err)
 			}
 			return &helloEvent{heartbeatInterval: payload.HeartbeatInterval, timeoutMS: payload.TimeoutMS}
 		case "nonce_proof":
@@ -117,7 +128,7 @@ func (m *Model) listen() tview.Cmd {
 				EncryptedNonce string `json:"encrypted_nonce"`
 			}
 			if err := json.Unmarshal(data, &payload); err != nil {
-				return tcell.NewEventError(err)
+				return newErrEvent(err)
 			}
 			return &nonceProofEvent{encryptedNonce: payload.EncryptedNonce}
 		case "pending_remote_init":
@@ -125,7 +136,7 @@ func (m *Model) listen() tview.Cmd {
 				Fingerprint string `json:"fingerprint"`
 			}
 			if err := json.Unmarshal(data, &payload); err != nil {
-				return tcell.NewEventError(err)
+				return newErrEvent(err)
 			}
 			return &pendingRemoteInitEvent{fingerprint: payload.Fingerprint}
 		case "pending_ticket":
@@ -133,7 +144,7 @@ func (m *Model) listen() tview.Cmd {
 				EncryptedUserPayload string `json:"encrypted_user_payload"`
 			}
 			if err := json.Unmarshal(data, &payload); err != nil {
-				return tcell.NewEventError(err)
+				return newErrEvent(err)
 			}
 			return &pendingTicketEvent{encryptedUserPayload: payload.EncryptedUserPayload}
 		case "cancel":
@@ -143,7 +154,7 @@ func (m *Model) listen() tview.Cmd {
 				Ticket string `json:"ticket"`
 			}
 			if err := json.Unmarshal(data, &payload); err != nil {
-				return tcell.NewEventError(err)
+				return newErrEvent(err)
 			}
 			return &pendingLoginEvent{ticket: payload.Ticket}
 		default:
@@ -170,7 +181,7 @@ func (m *Model) sendHeartbeat() tview.Cmd {
 			Op string `json:"op"`
 		}{"heartbeat"}
 		if err := m.conn.WriteJSON(data); err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 		return nil
 	}
@@ -185,7 +196,7 @@ func (m *Model) generatePrivateKey() tview.Cmd {
 	return func() tview.Event {
 		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 		return &privateKeyEvent{privateKey: privateKey}
 	}
@@ -194,11 +205,11 @@ func (m *Model) generatePrivateKey() tview.Cmd {
 func (m *Model) sendInit() tview.Cmd {
 	return func() tview.Event {
 		if m.privateKey == nil {
-			return tcell.NewEventError(errors.New("missing private key"))
+			return newErrEvent(errors.New("missing private key"))
 		}
 		spki, err := x509.MarshalPKIXPublicKey(m.privateKey.Public())
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 		encodedPublicKey := base64.StdEncoding.EncodeToString(spki)
 		data := struct {
@@ -206,7 +217,7 @@ func (m *Model) sendInit() tview.Cmd {
 			EncodedPublicKey string `json:"encoded_public_key"`
 		}{"init", encodedPublicKey}
 		if err := m.conn.WriteJSON(data); err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 		return nil
 	}
@@ -216,12 +227,12 @@ func (m *Model) sendNonceProof(encryptedNonce string) tview.Cmd {
 	return func() tview.Event {
 		decodedNonce, err := base64.StdEncoding.DecodeString(encryptedNonce)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 
 		decryptedNonce, err := rsa.DecryptOAEP(sha256.New(), nil, m.privateKey, decodedNonce, nil)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 
 		encodedNonce := base64.RawURLEncoding.EncodeToString(decryptedNonce)
@@ -230,7 +241,7 @@ func (m *Model) sendNonceProof(encryptedNonce string) tview.Cmd {
 			Nonce string `json:"nonce"`
 		}{"nonce_proof", encodedNonce}
 		if err := m.conn.WriteJSON(data); err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 		return nil
 	}
@@ -246,7 +257,7 @@ func (m *Model) generateQRCode(fingerprint string) tview.Cmd {
 		content := "https://discord.com/ra/" + fingerprint
 		qrCode, err := qrcode.New(content, qrcode.Low)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 		qrCode.DisableBorder = true
 		return &qrCodeEvent{qrCode: qrCode}
@@ -263,17 +274,17 @@ func (m *Model) decryptUserPayload(encryptedPayload string) tview.Cmd {
 	return func() tview.Event {
 		decodedPayload, err := base64.StdEncoding.DecodeString(encryptedPayload)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 
 		decryptedPayload, err := rsa.DecryptOAEP(sha256.New(), nil, m.privateKey, decodedPayload, nil)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 
 		parts := strings.Split(string(decryptedPayload), ":")
 		if len(parts) != 4 {
-			return tcell.NewEventError(errors.New("invalid user payload"))
+			return newErrEvent(errors.New("invalid user payload"))
 		}
 
 		return &userEvent{discriminator: parts[1], username: parts[3]}
@@ -293,17 +304,17 @@ func (m *Model) exchangeTicket(ticket string) tview.Cmd {
 
 		encryptedToken, err := client.ExchangeRemoteAuthTicket(ticket)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 
 		decodedToken, err := base64.StdEncoding.DecodeString(encryptedToken)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 
 		decryptedToken, err := rsa.DecryptOAEP(sha256.New(), nil, m.privateKey, decodedToken, nil)
 		if err != nil {
-			return tcell.NewEventError(err)
+			return newErrEvent(err)
 		}
 		return &TokenEvent{Token: string(decryptedToken)}
 	}
