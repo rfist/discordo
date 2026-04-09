@@ -297,11 +297,13 @@ func (m *Model) Update(msg tview.Msg) tview.Cmd {
 		m.messagesList.setMessages(msg.Messages)
 		m.messagesList.ScrollBottom()
 
-		hasNoPerm := msg.Channel.Type != discord.DirectMessage && msg.Channel.Type != discord.GroupDM && !m.state.HasPermissions(msg.Channel.ID, discord.PermissionSendMessages)
+		isDM := msg.Channel.Type == discord.DirectMessage || msg.Channel.Type == discord.GroupDM
+		hasNoPerm := !isDM && !m.state.HasPermissions(msg.Channel.ID, discord.PermissionSendMessages)
 		m.messageInput.SetDisabled(hasNoPerm)
-		text := "Message..."
 
-		var focusCmd tview.Cmd
+		text := "Message..."
+		focusCmd := tview.Cmd(nil)
+
 		if hasNoPerm {
 			text = "You do not have permission to send messages in this channel."
 		} else if m.cfg.AutoFocus {

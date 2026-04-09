@@ -726,8 +726,12 @@ func (mi *messageInput) FullHelp() [][]keybind.Keybind {
 
 	cfg := mi.cfg.Keybinds.MessageInput
 	openEditor := []keybind.Keybind{cfg.Paste.Keybind, cfg.OpenEditor.Keybind}
-	if selected := mi.chat.SelectedChannel(); selected != nil && mi.chat.state.HasPermissions(selected.ID, discord.PermissionAttachFiles) {
-		openEditor = append(openEditor, cfg.OpenFilePicker.Keybind)
+
+	selectedChannel := mi.chat.SelectedChannel()
+	if selectedChannel != nil {
+		if hasPerm := mi.chat.state.HasPermissions(selectedChannel.ID, discord.PermissionAttachFiles); hasPerm {
+			openEditor = append(openEditor, cfg.OpenFilePicker.Keybind)
+		}
 	}
 
 	return [][]keybind.Keybind{
