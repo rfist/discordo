@@ -83,6 +83,9 @@ guild_store = "s-"
 # Global shortcuts
 # Esc: Reset message selection or close the channel selection popup.
 [keybinds]
+# Hide/show the guilds tree.
+toggle_guilds_tree = "ctrl+b"
+toggle_channels_picker = "ctrl+k"
 toggle_help = "ctrl+."
 focus_guilds_tree = "ctrl+g"
 focus_messages_list = "ctrl+t"
@@ -90,8 +93,6 @@ focus_message_input = "ctrl+i"
 # Cycle focus between the widgets.
 focus_previous = "ctrl+h"
 focus_next = "ctrl+l"
-# Hide/show the guilds tree.
-toggle_guilds_tree = "ctrl+b"
 # Log out and remove the authentication token from keyring.
 # Requires re-login upon restart.
 logout = "ctrl+d"
@@ -99,7 +100,6 @@ suspend = "ctrl+z"
 quit = "ctrl+c"
 
 [keybinds.picker]
-toggle = "ctrl+k"
 cancel = "esc"
 up = "ctrl+p"
 down = "ctrl+n"
