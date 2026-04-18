@@ -32,9 +32,11 @@ func Run() error {
 		level = slog.LevelError
 	}
 
-	if err := logger.Load(*logPath, level); err != nil {
+	logFile, err := logger.Load(*logPath, level)
+	if err != nil {
 		return fmt.Errorf("failed to load logger: %w", err)
 	}
+	defer logFile.Close()
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
