@@ -11,11 +11,11 @@ require (
 	github.com/alecthomas/chroma/v2 v2.23.1
 	github.com/andybalholm/brotli v1.2.1
 	github.com/ayn2op/clipboard v0.0.0-20260308203959-c5ad7df3fc97
-	github.com/ayn2op/tview v0.0.0-20260413180352-1d55ccf1cda2
+	github.com/ayn2op/tview v0.0.0-20260420160540-112aca6def81
 	github.com/deckarep/gosx-notifier v0.0.0-20180201035817-e127226297fb
 	github.com/diamondburned/arikawa/v3 v3.6.1-0.20260311205148-176ad9b9440f
 	github.com/diamondburned/ningen/v3 v3.0.1-0.20260306213430-5a08d3a709b4
-	github.com/gdamore/tcell/v3 v3.2.0
+	github.com/gdamore/tcell/v3 v3.3.0
 	github.com/gen2brain/beeep v0.11.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
@@ -33,9 +33,11 @@ require (
 require (
 	git.sr.ht/~jackmordaunt/go-toast v1.1.2 // indirect
 	github.com/akavel/rsrc v0.10.2 // indirect
+	github.com/clipperhouse/displaywidth v0.11.0 // indirect
+	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dchest/jsmin v1.0.0 // indirect
-	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/dlclark/regexp2 v1.12.0 // indirect
 	github.com/esiqveland/notify v0.13.3 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
