@@ -163,6 +163,11 @@ delete_confirm = "d"
 # Open the selected message's attachments or hyperlinks in the message
 # using the default browser application.
 open = "o"
+# Open the emoji picker to react to the selected message.
+# Selecting an emoji you already reacted with removes the reaction.
+# Note: "+" cannot be bound; the keybind parser treats it as the
+# modifier separator (as in "ctrl+k").
+react = "a"
 # Yank (copy) the selected message's content/url/id.
 yank_content = "y"
 yank_url = "u"

@@ -37,6 +37,7 @@ const (
 
 	channelsPickerLayerName    = "channelsPicker"
 	attachmentsPickerLayerName = "attachmentsPicker"
+	reactionsPickerLayerName   = "reactionsPicker"
 )
 
 type Model struct {

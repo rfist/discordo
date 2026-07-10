@@ -55,6 +55,7 @@ type messagesList struct {
 	itemByID map[discord.MessageID]*tview.TextView
 
 	attachmentsPicker *attachmentsPicker
+	reactionsPicker   *reactionsPicker
 }
 
 var _ help.KeyMap = (*messagesList)(nil)
@@ -81,6 +82,7 @@ func newMessagesList(cfg *config.Config, chat *Model) *messagesList {
 		itemByID: make(map[discord.MessageID]*tview.TextView),
 	}
 	ml.attachmentsPicker = newAttachmentsPicker(cfg, chat)
+	ml.reactionsPicker = newReactionsPicker(cfg, chat)
 
 	ml.Box = ui.ConfigureBox(ml.Box, &cfg.Theme)
 	ml.SetTitle("Messages")
@@ -903,6 +905,8 @@ func (ml *messagesList) Update(msg tview.Msg) tview.Cmd {
 			return ml.yankURL()
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.Open.Keybind):
 			return ml.open()
+		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.React.Keybind):
+			return ml.react()
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.Reply.Keybind):
 			return ml.reply(false)
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.ReplyMention.Keybind):
@@ -1168,6 +1172,25 @@ func messageURLs(msg discord.Message) []string {
 		urls = append(urls, u)
 	}
 	return urls
+}
+
+func (ml *messagesList) react() tview.Cmd {
+	msg, ok := ml.selectedMessage()
+	if !ok {
+		return nil
+	}
+
+	ml.reactionsPicker.update(*msg)
+	ml.chat.
+		AddLayer(
+			ui.Centered(ml.reactionsPicker, ml.cfg.Picker.Width, ml.cfg.Picker.Height),
+			layers.WithName(reactionsPickerLayerName),
+			layers.WithResize(true),
+			layers.WithVisible(true),
+			layers.WithOverlay(),
+		).
+		SendToFront(reactionsPickerLayerName)
+	return tview.SetFocus(ml.reactionsPicker)
 }
 
 func (ml *messagesList) showAttachmentsList(urls []string, attachments []discord.Attachment) tview.Cmd {
@@ -1436,6 +1459,7 @@ func (ml *messagesList) FullHelp() [][]keybind.Keybind {
 	if canOpen {
 		manage = append(manage, cfg.Open.Keybind)
 	}
+	manage = append(manage, cfg.React.Keybind)
 
 	return [][]keybind.Keybind{
 		{cfg.SelectUp.Keybind, cfg.SelectDown.Keybind, cfg.SelectTop.Keybind, cfg.SelectBottom.Keybind},
