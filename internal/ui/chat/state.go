@@ -100,7 +100,10 @@ func (m *Model) onMessageCreate(message *gateway.MessageCreateEvent) tview.Cmd {
 	if ok && selectedChannel.ID == message.ChannelID {
 		m.removeTyper(message.Author.ID)
 		m.messagesList.addMessage(message.Message)
-		return nil
+		// Notify for the selected channel too when the terminal is unfocused.
+		if m.appFocused.Load() {
+			return nil
+		}
 	}
 
 	return m.notify(*message)

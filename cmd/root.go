@@ -64,6 +64,8 @@ func Run() error {
 		screen.EnableMouse()
 	}
 	screen.EnablePaste()
+	// Focus reporting drives notify-on-unfocused-terminal behavior.
+	screen.EnableFocus()
 
 	tview.Styles = tview.Theme{}
 	app := tview.NewApplication(tview.WithScreen(screen))

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ayn2op/arikawa/v3/discord"
@@ -60,6 +61,8 @@ type Model struct {
 	state  *ningen.State
 	events chan gateway.Event
 
+	appFocused atomic.Bool
+
 	typersMu sync.RWMutex
 	typers   map[discord.UserID]*time.Timer
 
@@ -79,6 +82,10 @@ func NewModel(app *tview.Application, cfg *config.Config, token string) *Model {
 		app: app,
 		cfg: cfg,
 	}
+
+	// Assume focused at startup; terminals without focus reporting never
+	// update this, which degrades to upstream's notify-on-other-channel-only.
+	m.appFocused.Store(true)
 
 	m.guildsTree = newGuildsTree(cfg, m)
 	m.messagesList = newMessagesList(cfg, m)
@@ -374,6 +381,9 @@ func (m *Model) Update(msg tview.Msg) tview.Cmd {
 		case keybind.Matches(msg, m.cfg.Keybinds.Logout.Keybind):
 			return tview.Sequence(m.closeState(), m.logout())
 		}
+	case tview.FocusMsg:
+		m.appFocused.Store(msg.Focused)
+		return nil
 	case tabSuggestMsg:
 		// Member search completes in a command goroutine; resume suggestion
 		// generation on the update loop to keep UI mutations serialized.

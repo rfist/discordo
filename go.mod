@@ -11,7 +11,6 @@ require (
 	github.com/ayn2op/arikawa/v3 v3.0.0-20260708075022-9cc760fe507e
 	github.com/ayn2op/ningen/v3 v3.0.1-0.20260708075321-0ba1ffc70bd6
 	github.com/ayn2op/tview v0.0.0-20260709081114-77dc5f1dd56c
-	github.com/deckarep/gosx-notifier v0.0.0-20180201035817-e127226297fb
 	github.com/gdamore/tcell/v3 v3.4.1-0.20260703160154-d85b1fbd48b8
 	github.com/gen2brain/beeep v0.11.2
 	github.com/google/go-cmp v0.6.0

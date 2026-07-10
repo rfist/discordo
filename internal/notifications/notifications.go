@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/ayn2op/arikawa/v3/discord"
 	"github.com/ayn2op/arikawa/v3/gateway"
@@ -14,6 +15,42 @@ import (
 	"github.com/ayn2op/discordo/internal/consts"
 	"github.com/ayn2op/ningen/v3"
 )
+
+var mentionRegex = regexp.MustCompile(`<@!?(\d+)>`)
+
+// resolveMentions replaces raw <@id> mentions with @nick/@username so
+// notifications don't show numeric IDs.
+func resolveMentions(state *ningen.State, content string, guildID discord.GuildID, mentions []discord.GuildUser) string {
+	return mentionRegex.ReplaceAllStringFunc(content, func(match string) string {
+		submatches := mentionRegex.FindStringSubmatch(match)
+		if len(submatches) < 2 {
+			return match
+		}
+
+		sf, err := discord.ParseSnowflake(submatches[1])
+		if err != nil {
+			return match
+		}
+		userID := discord.UserID(sf)
+
+		if guildID.IsValid() {
+			if member, err := state.Cabinet.Member(guildID, userID); err == nil {
+				if member.Nick != "" {
+					return "@" + member.Nick
+				}
+				return "@" + member.User.DisplayOrUsername()
+			}
+		}
+
+		for _, u := range mentions {
+			if u.ID == userID {
+				return "@" + u.DisplayOrUsername()
+			}
+		}
+
+		return match
+	})
+}
 
 func Notify(state *ningen.State, message gateway.MessageCreateEvent, cfg *config.Config) error {
 	if !cfg.Notifications.Enabled || cfg.Status == discord.DoNotDisturbStatus {
@@ -54,6 +91,8 @@ func Notify(state *ningen.State, message gateway.MessageCreateEvent, cfg *config
 
 		title += " (#" + channel.Name + ", " + guild.Name + ")"
 	}
+
+	content = resolveMentions(state, content, channel.GuildID, message.Mentions)
 
 	hash := message.Author.Avatar
 	if hash == "" {
