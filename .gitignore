@@ -2,8 +2,13 @@ discordo*
 
 .golangci*
 
-# Visual Studio Code
+# Editor / IDE
 .vscode/
+.idea/
+
+# Claude / Serena local tooling
+.claude/
+.serena/
 
 # Nix stuff
 result

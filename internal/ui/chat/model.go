@@ -45,13 +45,19 @@ type Model struct {
 
 	// guildsTree (sidebar) + rightFlex
 	mainFlex *flex.Model
-	// messagesList + composer
+	// middleFlex (messagesList [+ imagePreview]) + composer
 	rightFlex *flex.Model
+	// messagesList + imagePreview, laid out horizontally
+	middleFlex *flex.Model
 
 	guildsTree     *guildsTree
 	messagesList   *messagesList
 	composer       *composer
 	channelsPicker *channelsPicker
+	imagePreview   *imagePreview
+	// imagePreviewVisible tracks whether the preview pane is currently part of
+	// the layout; toggled by the ToggleImagePreview keybind.
+	imagePreviewVisible bool
 
 	selectedChannel   *discord.Channel
 	selectedChannelMu sync.RWMutex
@@ -75,8 +81,9 @@ func NewModel(app *tview.Application, cfg *config.Config, token string) *Model {
 	m := &Model{
 		Layers: layers.New(),
 
-		mainFlex:  flex.NewModel(),
-		rightFlex: flex.NewModel(),
+		mainFlex:   flex.NewModel(),
+		rightFlex:  flex.NewModel(),
+		middleFlex: flex.NewModel(),
 
 		typers: make(map[discord.UserID]*time.Timer),
 
@@ -92,6 +99,7 @@ func NewModel(app *tview.Application, cfg *config.Config, token string) *Model {
 	m.messagesList = newMessagesList(cfg, m)
 	m.composer = newComposer(cfg, m)
 	m.channelsPicker = newChannelsPicker(cfg, m)
+	m.imagePreview = newImagePreview(cfg, m)
 
 	id := gateway.NewIdentifier(gateway.IdentifyCommand{
 		Token:      token,
@@ -135,11 +143,21 @@ func (m *Model) isMe(id discord.UserID) bool {
 func (m *Model) buildLayout() {
 	m.Clear()
 	m.rightFlex.Clear()
+	m.middleFlex.Clear()
 	m.mainFlex.Clear()
+
+	// middleFlex lays the message list and the optional image preview pane out
+	// horizontally (flex default direction is column = side-by-side, matching
+	// mainFlex). The preview is only an item when toggled on.
+	m.middleFlex.AddItem(m.messagesList, 0, 2, false)
+	if m.imagePreviewVisible {
+		// Preview takes ~1/3 of the middle row so the message list stays usable.
+		m.middleFlex.AddItem(m.imagePreview, 0, 1, false)
+	}
 
 	m.rightFlex.
 		SetDirection(flex.DirectionRow).
-		AddItem(m.messagesList, 0, 1, false).
+		AddItem(m.middleFlex, 0, 1, false).
 		AddItem(m.composer, 3, 1, false)
 	// The guilds tree is always focused first at start-up.
 	m.mainFlex.
@@ -178,6 +196,34 @@ func (m *Model) openPicker() {
 func (m *Model) closePicker() {
 	m.RemoveLayer(channelsPickerLayerName)
 	m.channelsPicker.Refresh()
+}
+
+// togglePreview shows or hides the image preview pane. Focus is left untouched
+// (the pane is a passive display) so the user can keep navigating the message
+// list. Showing it immediately loads the current selection's image.
+func (m *Model) togglePreview() tview.Cmd {
+	m.imagePreviewVisible = !m.imagePreviewVisible
+	m.buildLayout()
+	if !m.imagePreviewVisible {
+		m.imagePreview.clear()
+		return nil
+	}
+	return m.updateImagePreviewFromSelection()
+}
+
+// updateImagePreviewFromSelection refreshes the preview pane to show the
+// currently selected message's image. It is a no-op when the pane is hidden.
+func (m *Model) updateImagePreviewFromSelection() tview.Cmd {
+	if !m.imagePreviewVisible {
+		return nil
+	}
+
+	message, ok := m.messagesList.selectedMessage()
+	if !ok {
+		m.imagePreview.clear()
+		return nil
+	}
+	return m.imagePreview.loadCmd(*message)
 }
 
 func (m *Model) toggleGuildsTree() tview.Cmd {
@@ -316,6 +362,9 @@ func (m *Model) Update(msg tview.Msg) tview.Cmd {
 		m.messagesList.setTitle(msg.Channel)
 		m.messagesList.setMessages(msg.Messages)
 		m.messagesList.ScrollBottom()
+		// No message is selected in a freshly loaded channel; drop any image
+		// left over from the previous channel.
+		m.imagePreview.clear()
 
 		isDM := msg.Channel.Type == discord.DirectMessage || msg.Channel.Type == discord.GroupDM
 		hasNoPerm := !isDM && !m.state.HasPermissions(msg.Channel.ID, discord.PermissionSendMessages)
@@ -334,6 +383,9 @@ func (m *Model) Update(msg tview.Msg) tview.Cmd {
 			return tview.Batch(focusCmd, m.messagesList.requestGuildMembers(msg.Channel.GuildID, msg.Messages))
 		}
 		return focusCmd
+	case imagePreviewLoadedMsg:
+		m.imagePreview.show(msg)
+		return nil
 	case QuitMsg:
 		return m.closeState()
 	case tview.FormSubmitMsg:
@@ -387,6 +439,8 @@ func (m *Model) Update(msg tview.Msg) tview.Cmd {
 		case keybind.Matches(msg, m.cfg.Keybinds.ToggleChannelsPicker.Keybind):
 			m.togglePicker()
 			return nil
+		case keybind.Matches(msg, m.cfg.Keybinds.ToggleImagePreview.Keybind):
+			return m.togglePreview()
 
 		case keybind.Matches(msg, m.cfg.Keybinds.Logout.Keybind):
 			return tview.Sequence(m.closeState(), m.logout())

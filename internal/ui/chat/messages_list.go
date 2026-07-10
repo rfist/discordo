@@ -882,21 +882,21 @@ func (ml *messagesList) Update(msg tview.Msg) tview.Cmd {
 		switch {
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.Cancel.Keybind):
 			ml.clearSelection()
-			return nil
+			return ml.chat.updateImagePreviewFromSelection()
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.SelectUp.Keybind):
-			return ml.selectUp()
+			return tview.Batch(ml.selectUp(), ml.chat.updateImagePreviewFromSelection())
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.SelectDown.Keybind):
 			ml.selectDown()
-			return nil
+			return ml.chat.updateImagePreviewFromSelection()
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.SelectTop.Keybind):
 			ml.selectTop()
-			return nil
+			return ml.chat.updateImagePreviewFromSelection()
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.SelectBottom.Keybind):
 			ml.selectBottom()
-			return nil
+			return ml.chat.updateImagePreviewFromSelection()
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.SelectReply.Keybind):
 			ml.selectReply()
-			return nil
+			return ml.chat.updateImagePreviewFromSelection()
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.YankID.Keybind):
 			return ml.yankMessageID()
 		case keybind.Matches(msg, ml.cfg.Keybinds.MessagesList.YankContent.Keybind):
@@ -945,10 +945,11 @@ func (ml *messagesList) Update(msg tview.Msg) tview.Cmd {
 		default:
 			ml.SetCursor(prevCursor)
 		}
+		previewCmd := ml.chat.updateImagePreviewFromSelection()
 		if selectedChannel.GuildID.IsValid() {
-			return ml.requestGuildMembers(selectedChannel.GuildID, msg.Older)
+			return tview.Batch(ml.requestGuildMembers(selectedChannel.GuildID, msg.Older), previewCmd)
 		}
-		return nil
+		return previewCmd
 	}
 	return ml.Model.Update(msg)
 }

@@ -107,6 +107,7 @@ type MentionsListKeybinds struct {
 type Keybinds struct {
 	ToggleGuildsTree     Keybind `toml:"toggle_guilds_tree"`
 	ToggleChannelsPicker Keybind `toml:"toggle_channels_picker"`
+	ToggleImagePreview   Keybind `toml:"toggle_image_preview"`
 	ToggleHelp           Keybind `toml:"toggle_help"`
 	Suspend              Keybind `toml:"suspend"`
 
@@ -203,6 +204,7 @@ func defaultKeybinds() Keybinds {
 	return Keybinds{
 		ToggleGuildsTree:     desc("toggle guilds"),
 		ToggleChannelsPicker: desc("channels picker"),
+		ToggleImagePreview:   desc("image preview"),
 		ToggleHelp:           desc("help"),
 		Suspend:              desc("suspend"),
 

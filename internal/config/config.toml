@@ -105,6 +105,9 @@ guild_store = "s-"
 # Hide/show the guilds tree.
 toggle_guilds_tree = "ctrl+b"
 toggle_channels_picker = "ctrl+k"
+# Show/hide the image preview pane. When visible, the selected message's first
+# image attachment is rendered as unicode half-blocks beside the message list.
+toggle_image_preview = "ctrl+o"
 toggle_help = "ctrl+."
 focus_guilds_tree = "ctrl+g"
 focus_messages_list = "ctrl+t"
