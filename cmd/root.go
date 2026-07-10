@@ -7,6 +7,7 @@ import (
 
 	"github.com/ayn2op/arikawa/v3/utils/ws"
 	"github.com/ayn2op/discordo/internal/config"
+	"github.com/ayn2op/discordo/internal/consts"
 	"github.com/ayn2op/discordo/internal/logger"
 	"github.com/ayn2op/discordo/internal/ui/root"
 	"github.com/ayn2op/tview"
@@ -17,7 +18,14 @@ func Run() error {
 	configPath := flag.String("config-path", config.DefaultPath(), "path of the configuration file")
 	logPath := flag.String("log-path", logger.DefaultPath(), "path of the log file")
 	logLevel := flag.String("log-level", "info", "log level")
+	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.BoolVar(showVersion, "v", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("%s v%s (upstream: %s)\n", consts.Name, consts.ForkVersion, consts.UpstreamCommit)
+		return nil
+	}
 
 	var level slog.Level
 	switch *logLevel {
