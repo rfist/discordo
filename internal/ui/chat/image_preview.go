@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 
 	_ "image/gif"
@@ -39,6 +40,12 @@ type imagePreview struct {
 	cfg  *config.Config
 	chat *Model
 
+	// protocol is the rendering path resolved once at startup from
+	// cfg.ImagePreview.Protocol and the terminal environment. Half-block
+	// rendering is always available; the kitty draw path is layered on top of
+	// it (see terminal_graphics.go / kitty.go).
+	protocol graphicsProtocol
+
 	// messageID of the image currently displayed or being loaded; stale
 	// loads are dropped when the selection has moved on.
 	messageID discord.MessageID
@@ -52,9 +59,14 @@ func newImagePreview(cfg *config.Config, chat *Model) *imagePreview {
 		TextView: tview.NewTextView(),
 		cfg:      cfg,
 		chat:     chat,
+		protocol: resolveGraphicsProtocol(cfg.ImagePreview.Protocol, os.Getenv),
 	}
 	ip.Box = ui.ConfigureBox(ip.Box, &cfg.Theme)
 	ip.SetTitle("Preview")
+	if ip.protocol == graphicsKitty {
+		// The kitty draw path is not wired yet; half-blocks render meanwhile.
+		slog.Debug("image preview: kitty protocol selected (rendering pending; using half-blocks)")
+	}
 	ip.clear()
 	return ip
 }

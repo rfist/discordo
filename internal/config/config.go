@@ -80,6 +80,17 @@ type (
 		MaxHeight int `toml:"max_height"`
 	}
 
+	ImagePreviewConfig struct {
+		// Protocol selects how the preview pane renders images:
+		//   "halfblock" – unicode half-blocks, works in any terminal (default)
+		//   "kitty"     – kitty graphics protocol, sharp images on
+		//                 kitty/ghostty/WezTerm; falls back to half-blocks elsewhere
+		//   "auto"      – kitty when the terminal is detected to support it,
+		//                 otherwise half-blocks
+		// Unknown or empty values are treated as "halfblock".
+		Protocol string `toml:"protocol"`
+	}
+
 	SidebarMarkersConfig struct {
 		Expanded  string `toml:"expanded"`
 		Collapsed string `toml:"collapsed"`
@@ -124,6 +135,7 @@ type (
 		TypingIndicator TypingIndicator `toml:"typing_indicator"`
 		Sidebar         SidebarConfig   `toml:"sidebar"`
 		Composer        ComposerConfig  `toml:"composer"`
+		ImagePreview    ImagePreviewConfig `toml:"image_preview"`
 
 		Icons Icons `toml:"icons"`
 

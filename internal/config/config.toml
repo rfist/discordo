@@ -27,6 +27,14 @@ messages_limit = 50
 # Set to 1 for a fixed single-line input.
 max_height = 10
 
+[image_preview]
+# How the preview pane (toggle with the image-preview keybind) renders images:
+#   "halfblock" – unicode half-blocks; works in any terminal (default)
+#   "kitty"     – kitty graphics protocol; sharp images on kitty/ghostty/WezTerm,
+#                 falls back to half-blocks on terminals without support
+#   "auto"      – kitty when the terminal supports it, otherwise half-blocks
+protocol = "halfblock"
+
 [markdown]
 # Whether to parse and render markdown in messages or not.
 enabled = true
