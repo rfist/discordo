@@ -89,6 +89,7 @@ type MessagesListKeybinds struct {
 	Delete        Keybind `toml:"delete"`
 	DeleteConfirm Keybind `toml:"delete_confirm"`
 	Open          Keybind `toml:"open"`
+	React         Keybind `toml:"react"`
 
 	YankContent Keybind `toml:"yank_content"`
 	YankURL     Keybind `toml:"yank_url"`
@@ -190,6 +191,7 @@ func defaultMessagesListKeybinds() MessagesListKeybinds {
 			"delete",
 		),
 		Open:        newKeybind("o", "open"),
+		React:       newKeybind("+", "react"),
 		YankContent: newKeybind("y", "copy text"),
 		YankURL:     newKeybind("u", "copy url"),
 		YankID:      newKeybind("i", "copy id"),

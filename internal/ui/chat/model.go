@@ -27,6 +27,7 @@ const (
 	attachmentsListLayerName = "attachmentsList"
 	confirmModalLayerName    = "confirmModal"
 	channelsPickerLayerName  = "channelsPicker"
+	reactionsPickerLayerName = "reactionsPicker"
 )
 
 type Model struct {

@@ -57,6 +57,7 @@ type messagesList struct {
 	itemByID map[discord.MessageID]*tview.TextView
 
 	attachmentsPicker *attachmentsPicker
+	reactionsPicker   *reactionsPicker
 
 	fetchingMembers struct {
 		mu    sync.Mutex
@@ -90,6 +91,7 @@ func newMessagesList(cfg *config.Config, chatView *Model) *messagesList {
 		itemByID: make(map[discord.MessageID]*tview.TextView),
 	}
 	ml.attachmentsPicker = newAttachmentsPicker(cfg, chatView)
+	ml.reactionsPicker = newReactionsPicker(cfg, chatView)
 
 	ml.Box = ui.ConfigureBox(ml.Box, &cfg.Theme)
 	ml.SetTitle("Messages")
@@ -904,6 +906,9 @@ func (ml *messagesList) HandleEvent(event tview.Event) tview.Command {
 		case keybind.Matches(event, ml.cfg.Keybinds.MessagesList.Open.Keybind):
 			ml.open()
 			return nil
+		case keybind.Matches(event, ml.cfg.Keybinds.MessagesList.React.Keybind):
+			ml.react()
+			return nil
 		case keybind.Matches(event, ml.cfg.Keybinds.MessagesList.Reply.Keybind):
 			ml.reply(false)
 			return nil
@@ -1203,6 +1208,26 @@ func (ml *messagesList) showAttachmentsList(urls []string, attachments []discord
 	ml.chatView.app.SetFocus(ml.attachmentsPicker)
 }
 
+func (ml *messagesList) react() {
+	msg, err := ml.selectedMessage()
+	if err != nil {
+		slog.Error("failed to get selected message", "err", err)
+		return
+	}
+
+	ml.reactionsPicker.update(*msg)
+	ml.chatView.
+		AddLayer(
+			ui.Centered(ml.reactionsPicker, ml.cfg.Picker.Width, ml.cfg.Picker.Height),
+			layers.WithName(reactionsPickerLayerName),
+			layers.WithResize(true),
+			layers.WithVisible(true),
+			layers.WithOverlay(),
+		).
+		SendToFront(reactionsPickerLayerName)
+	ml.chatView.app.SetFocus(ml.reactionsPicker)
+}
+
 func (ml *messagesList) openAttachment(attachment discord.Attachment) {
 	resp, err := http.Get(attachment.URL)
 	if err != nil {
@@ -1456,6 +1481,7 @@ func (ml *messagesList) FullHelp() [][]keybind.Keybind {
 	if canOpen {
 		manage = append(manage, cfg.Open.Keybind)
 	}
+	manage = append(manage, cfg.React.Keybind)
 
 	return [][]keybind.Keybind{
 		{cfg.SelectUp.Keybind, cfg.SelectDown.Keybind, cfg.SelectTop.Keybind, cfg.SelectBottom.Keybind},
