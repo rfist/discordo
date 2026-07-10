@@ -95,3 +95,11 @@ func TestLoad(t *testing.T) {
 		}
 	})
 }
+
+func TestDefaultKeybindsParse(t *testing.T) {
+	// The keybind parser uses "+" as the modifier separator, so keys that
+	// normalize to nothing silently produce an unbindable action.
+	if keys := defaultKeybinds().MessagesList.React.Keys(); len(keys) == 0 {
+		t.Errorf("messages_list.react default keybind does not parse to any key")
+	}
+}

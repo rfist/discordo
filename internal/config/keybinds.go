@@ -191,7 +191,7 @@ func defaultMessagesListKeybinds() MessagesListKeybinds {
 			"delete",
 		),
 		Open:        newKeybind("o", "open"),
-		React:       newKeybind("+", "react"),
+		React:       newKeybind("a", "react"),
 		YankContent: newKeybind("y", "copy text"),
 		YankURL:     newKeybind("u", "copy url"),
 		YankID:      newKeybind("i", "copy id"),
