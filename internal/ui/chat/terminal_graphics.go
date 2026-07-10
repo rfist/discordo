@@ -21,10 +21,10 @@ func inTmux(env func(string) string) bool {
 		strings.HasPrefix(env("TERM"), "tmux")
 }
 
-// inHerdr reports whether we are inside the herdr multiplexer. Unlike tmux,
-// herdr composites kitty graphics itself, but only via Unicode-placeholder
-// placement (which the preview uses in kitty mode) and only when its own host
-// terminal supports graphics.
+// inHerdr reports whether we are inside the herdr multiplexer. Empirically
+// (tested with a minimal standalone reproducer) herdr does not composite the
+// inline Unicode-placeholder graphics the preview emits — the image renders
+// blank — so kitty is disabled inside herdr and half-blocks are used instead.
 func inHerdr(env func(string) string) bool {
 	return env("HERDR_ENV") != "" || env("HERDR_PANE_ID") != ""
 }
@@ -65,10 +65,11 @@ func kittyCapable(env func(string) string) bool {
 func resolveGraphicsProtocol(pref string, env func(string) string) graphicsProtocol {
 	switch strings.ToLower(strings.TrimSpace(pref)) {
 	case "kitty":
-		// Explicit opt-in: honor it even where detection is unsure, including
-		// inside herdr (it composites Unicode-placeholder images). Only tmux/
-		// screen force half-blocks, since they cannot show graphics at all.
-		if inTmux(env) {
+		// Explicit opt-in: honor it even where terminal detection is unsure,
+		// but not inside a multiplexer that cannot show our graphics — tmux/
+		// screen (no forwarding) or herdr (does not composite the inline
+		// placeholder protocol) — where it would just render a blank pane.
+		if inTmux(env) || inHerdr(env) {
 			return graphicsHalfBlock
 		}
 		return graphicsKitty
