@@ -32,7 +32,7 @@ func TestKittyPlacementSingleChunk(t *testing.T) {
 	if !strings.HasSuffix(s, "\x1b\\") {
 		t.Errorf("missing string terminator")
 	}
-	for _, want := range []string{"a=T", "f=100", "q=2", "i=7", "c=12", "r=6", "m=0"} {
+	for _, want := range []string{"a=T", "f=100", "q=2", "C=1", "i=7", "c=12", "r=6", "m=0"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("control block missing %q", want)
 		}
@@ -90,5 +90,33 @@ func TestKittyPlacementChunking(t *testing.T) {
 func TestKittyDelete(t *testing.T) {
 	if got, want := string(kittyDelete(42)), "\x1b_Ga=d,d=I,i=42\x1b\\"; got != want {
 		t.Errorf("kittyDelete = %q, want %q", got, want)
+	}
+}
+
+func TestFitCells(t *testing.T) {
+	cases := []struct {
+		name                             string
+		imgW, imgH, maxCols, maxRows     int
+		wantCols, wantRows               int
+	}{
+		// Square image in a wide/short box is limited by rows (×2 for aspect).
+		{"square limited by rows", 100, 100, 80, 10, 20, 10},
+		// Wide image limited by cols (aspect 4:1, cell aspect ~1:2 → 5 rows).
+		{"wide limited by cols", 200, 50, 40, 40, 40, 5},
+		// Never exceed the bounds.
+		{"clamped to bounds", 1000, 1000, 30, 15, 30, 15},
+		// Degenerate inputs fall back to the box.
+		{"zero image", 0, 0, 12, 6, 12, 6},
+		// Always at least 1 cell.
+		{"tiny", 1, 1000, 40, 20, 1, 20},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cols, rows := fitCells(tc.imgW, tc.imgH, tc.maxCols, tc.maxRows)
+			if cols != tc.wantCols || rows != tc.wantRows {
+				t.Errorf("fitCells(%d,%d,%d,%d) = (%d,%d), want (%d,%d)",
+					tc.imgW, tc.imgH, tc.maxCols, tc.maxRows, cols, rows, tc.wantCols, tc.wantRows)
+			}
+		})
 	}
 }

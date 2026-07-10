@@ -207,6 +207,9 @@ func (m *Model) togglePreview() tview.Cmd {
 	m.buildLayout()
 	if !m.imagePreviewVisible {
 		m.imagePreview.clear()
+		// View won't run once the pane leaves the layout, so remove any
+		// on-screen kitty image now.
+		m.imagePreview.deleteKitty()
 		return nil
 	}
 	return m.updateImagePreviewFromSelection()

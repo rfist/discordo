@@ -40,7 +40,9 @@ func kittyPlacement(id uint32, img image.Image, cols, rows int) ([]byte, error) 
 		out.WriteString("\x1b_G")
 		if i == 0 {
 			// First (or only) chunk carries the full control block.
-			fmt.Fprintf(&out, "a=T,f=100,q=2,i=%d,c=%d,r=%d,m=%d", id, cols, rows, boolToInt(!last))
+			// C=1 keeps the cursor put (kitty otherwise advances it past the
+			// image, which can scroll the screen when placing near the bottom).
+			fmt.Fprintf(&out, "a=T,f=100,q=2,C=1,i=%d,c=%d,r=%d,m=%d", id, cols, rows, boolToInt(!last))
 		} else {
 			fmt.Fprintf(&out, "m=%d", boolToInt(!last))
 		}
@@ -62,4 +64,25 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// fitCells picks the cell dimensions to scale an imgW×imgH image into, bounded
+// by maxCols×maxRows, preserving aspect ratio. Terminal cells are roughly twice
+// as tall as they are wide, so a pixel row occupies about half the vertical
+// space of a pixel column; we approximate the cell aspect as 1:2 (exact pixel
+// metrics from the terminal would refine this). Result is always >= 1 in each
+// axis and never exceeds the bounds.
+func fitCells(imgW, imgH, maxCols, maxRows int) (cols, rows int) {
+	if imgW <= 0 || imgH <= 0 || maxCols <= 0 || maxRows <= 0 {
+		return max(maxCols, 1), max(maxRows, 1)
+	}
+
+	// Vertical is measured in half-cell units to account for the 1:2 aspect.
+	scale := min(
+		float64(maxCols)/float64(imgW),
+		float64(maxRows)/(float64(imgH)/2),
+	)
+	cols = min(max(int(float64(imgW)*scale), 1), maxCols)
+	rows = min(max(int(float64(imgH)/2*scale), 1), maxRows)
+	return cols, rows
 }
