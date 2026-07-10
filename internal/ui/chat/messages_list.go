@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -501,6 +502,34 @@ func (ml *messagesList) drawDefaultMessage(builder *tview.LineBuilder, message d
 		} else {
 			builder.Write(a.Filename, attachmentStyle)
 		}
+	}
+
+	ml.drawReactions(builder, message, baseStyle)
+}
+
+func (ml *messagesList) drawReactions(builder *tview.LineBuilder, message discord.Message, baseStyle tcell.Style) {
+	if len(message.Reactions) == 0 {
+		return
+	}
+
+	reactionStyle := ui.MergeStyle(baseStyle, ml.cfg.Theme.MessagesList.ReactionStyle.Style)
+	builder.NewLine()
+	for i, reaction := range message.Reactions {
+		if i > 0 {
+			builder.Write(" | ", reactionStyle)
+		}
+
+		emoji := reaction.Emoji.Name
+		if reaction.Emoji.ID.IsValid() {
+			// Custom emoji cannot be rendered in a terminal; show its name instead.
+			emoji = ":" + strings.TrimSpace(reaction.Emoji.Name) + ":"
+		}
+
+		style := reactionStyle
+		if reaction.Me {
+			style = style.Bold(true)
+		}
+		builder.Write(fmt.Sprintf("%s %d", emoji, reaction.Count), style)
 	}
 }
 

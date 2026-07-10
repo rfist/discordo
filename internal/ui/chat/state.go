@@ -40,6 +40,10 @@ func (m *Model) OpenState(token string) error {
 	m.state.AddHandler(m.onMessageCreate)
 	m.state.AddHandler(m.onMessageUpdate)
 	m.state.AddHandler(m.onMessageDelete)
+	m.state.AddHandler(m.onMessageReactionAdd)
+	m.state.AddHandler(m.onMessageReactionRemove)
+	m.state.AddHandler(m.onMessageReactionRemoveAll)
+	m.state.AddHandler(m.onMessageReactionRemoveEmoji)
 	m.state.AddHandler(m.onReadUpdate)
 	m.state.AddHandler(m.onGuildMembersChunk)
 	m.state.AddHandler(m.onGuildMemberRemove)
@@ -208,6 +212,94 @@ func (m *Model) onMessageDelete(message *gateway.MessageDeleteEvent) {
 			})
 		}
 	}
+}
+
+// updateMessage applies edit to the local copy of a message in the currently
+// selected channel and redraws it. The gateway store may evict old messages,
+// so the local list is mutated directly instead of re-fetching from the cabinet.
+func (m *Model) updateMessage(channelID discord.ChannelID, messageID discord.MessageID, edit func(*discord.Message)) {
+	selected := m.SelectedChannel()
+	if selected == nil || selected.ID != channelID {
+		return
+	}
+
+	index := slices.IndexFunc(m.messagesList.messages, func(m discord.Message) bool {
+		return m.ID == messageID
+	})
+	if index < 0 {
+		return
+	}
+
+	m.app.QueueUpdateDraw(func() {
+		message := m.messagesList.messages[index]
+		edit(&message)
+		m.messagesList.setMessage(index, message)
+	})
+}
+
+func findReaction(reactions []discord.Reaction, emoji discord.Emoji) int {
+	return slices.IndexFunc(reactions, func(r discord.Reaction) bool {
+		if emoji.ID.IsValid() {
+			return r.Emoji.ID == emoji.ID
+		}
+		return r.Emoji.Name == emoji.Name
+	})
+}
+
+func (m *Model) onMessageReactionAdd(event *gateway.MessageReactionAddEvent) {
+	me, _ := m.state.Cabinet.Me()
+	isMe := me != nil && event.UserID == me.ID
+	m.updateMessage(event.ChannelID, event.MessageID, func(message *discord.Message) {
+		// Clone before mutating; the backing array may be shared with the
+		// gateway store or previously rendered rows.
+		message.Reactions = slices.Clone(message.Reactions)
+		if i := findReaction(message.Reactions, event.Emoji); i >= 0 {
+			message.Reactions[i].Count++
+			message.Reactions[i].Me = message.Reactions[i].Me || isMe
+		} else {
+			message.Reactions = append(message.Reactions, discord.Reaction{
+				Count: 1,
+				Me:    isMe,
+				Emoji: event.Emoji,
+			})
+		}
+	})
+}
+
+func (m *Model) onMessageReactionRemove(event *gateway.MessageReactionRemoveEvent) {
+	me, _ := m.state.Cabinet.Me()
+	isMe := me != nil && event.UserID == me.ID
+	m.updateMessage(event.ChannelID, event.MessageID, func(message *discord.Message) {
+		i := findReaction(message.Reactions, event.Emoji)
+		if i < 0 {
+			return
+		}
+
+		message.Reactions = slices.Clone(message.Reactions)
+		message.Reactions[i].Count--
+		if message.Reactions[i].Count <= 0 {
+			message.Reactions = slices.Delete(message.Reactions, i, i+1)
+		} else if isMe {
+			message.Reactions[i].Me = false
+		}
+	})
+}
+
+func (m *Model) onMessageReactionRemoveAll(event *gateway.MessageReactionRemoveAllEvent) {
+	m.updateMessage(event.ChannelID, event.MessageID, func(message *discord.Message) {
+		message.Reactions = nil
+	})
+}
+
+func (m *Model) onMessageReactionRemoveEmoji(event *gateway.MessageReactionRemoveEmojiEvent) {
+	m.updateMessage(event.ChannelID, event.MessageID, func(message *discord.Message) {
+		i := findReaction(message.Reactions, event.Emoji)
+		if i < 0 {
+			return
+		}
+
+		message.Reactions = slices.Delete(slices.Clone(message.Reactions), i, i+1)
+	})
 }
 
 func (m *Model) onGuildMembersChunk(event *gateway.GuildMembersChunkEvent) {
