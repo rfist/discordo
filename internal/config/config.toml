@@ -33,7 +33,7 @@ max_height = 10
 #   "kitty"     – kitty graphics protocol; sharp images on kitty/ghostty/WezTerm,
 #                 falls back to half-blocks on terminals without support
 #   "auto"      – kitty when the terminal supports it, otherwise half-blocks
-protocol = "halfblock"
+protocol = "auto"
 
 [markdown]
 # Whether to parse and render markdown in messages or not.

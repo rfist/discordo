@@ -19,6 +19,8 @@ func TestKittyCapable(t *testing.T) {
 		{"term_program ghostty", map[string]string{"TERM_PROGRAM": "ghostty"}, true},
 		{"plain xterm", map[string]string{"TERM": "xterm-256color"}, false},
 		{"kitty inside tmux is disabled", map[string]string{"KITTY_WINDOW_ID": "1", "TMUX": "/tmp/tmux"}, false},
+		{"kitty inside herdr is disabled", map[string]string{"KITTY_WINDOW_ID": "1", "HERDR_ENV": "1"}, false},
+		{"herdr pane id also disables", map[string]string{"TERM": "xterm-kitty", "HERDR_PANE_ID": "w6:p2"}, false},
 		{"screen TERM disabled", map[string]string{"TERM": "screen-256color", "KITTY_WINDOW_ID": "1"}, false},
 		{"empty env", map[string]string{}, false},
 	}
@@ -43,8 +45,10 @@ func TestResolveGraphicsProtocol(t *testing.T) {
 		{"unknown pref defaults to halfblock", "banana", map[string]string{}, graphicsHalfBlock},
 		{"kitty forced without detection", "kitty", map[string]string{}, graphicsKitty},
 		{"kitty forced but tmux downgrades", "kitty", map[string]string{"TMUX": "/tmp/tmux"}, graphicsHalfBlock},
+		{"kitty forced but herdr downgrades", "kitty", map[string]string{"HERDR_ENV": "1"}, graphicsHalfBlock},
 		{"auto with capable terminal", "auto", map[string]string{"TERM": "xterm-kitty"}, graphicsKitty},
 		{"auto with incapable terminal", "auto", map[string]string{"TERM": "xterm-256color"}, graphicsHalfBlock},
+		{"auto inside herdr on ghostty falls back", "auto", map[string]string{"TERM_PROGRAM": "ghostty", "HERDR_ENV": "1"}, graphicsHalfBlock},
 		{"case-insensitive", "Auto", map[string]string{"TERM": "xterm-kitty"}, graphicsKitty},
 	}
 	for _, tc := range cases {

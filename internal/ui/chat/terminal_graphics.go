@@ -12,16 +12,29 @@ const (
 	graphicsKitty
 )
 
+// insideMultiplexer reports whether we are running under a terminal multiplexer
+// that does not forward graphics escape sequences to the host terminal. Such a
+// multiplexer sits between the app and the terminal, so kitty images written to
+// the pty never reach it (they render blank), making half-blocks the safe
+// choice. Covers tmux/screen and herdr; extend as needed.
+func insideMultiplexer(env func(string) string) bool {
+	return env("TMUX") != "" ||
+		env("HERDR_ENV") != "" ||
+		env("HERDR_PANE_ID") != "" ||
+		strings.HasPrefix(env("TERM"), "screen") ||
+		strings.HasPrefix(env("TERM"), "tmux")
+}
+
 // kittyCapable reports whether the terminal described by env supports the kitty
 // graphics protocol. Detection is environment-only (no terminal query), so it
 // is synchronous and side-effect free; the terminals that implement kitty
 // graphics all advertise themselves through these variables.
 //
-// tmux is treated as incapable: kitty graphics only survive inside tmux with
-// explicit passthrough and correct pane tracking, which we do not attempt, so
-// half-blocks are the safer choice there.
+// Multiplexers are treated as incapable: kitty graphics only survive inside a
+// multiplexer with explicit passthrough and correct pane tracking, which we do
+// not attempt.
 func kittyCapable(env func(string) string) bool {
-	if env("TMUX") != "" || strings.HasPrefix(env("TERM"), "screen") || strings.HasPrefix(env("TERM"), "tmux") {
+	if insideMultiplexer(env) {
 		return false
 	}
 
@@ -51,9 +64,10 @@ func kittyCapable(env func(string) string) bool {
 func resolveGraphicsProtocol(pref string, env func(string) string) graphicsProtocol {
 	switch strings.ToLower(strings.TrimSpace(pref)) {
 	case "kitty":
-		// Explicit opt-in: honor it even if detection is unsure, but never
-		// inside tmux where it is known to break.
-		if env("TMUX") != "" {
+		// Explicit opt-in: honor it even if terminal detection is unsure, but
+		// never inside a multiplexer where the sequences cannot reach the
+		// terminal (it would just render a blank pane).
+		if insideMultiplexer(env) {
 			return graphicsHalfBlock
 		}
 		return graphicsKitty
