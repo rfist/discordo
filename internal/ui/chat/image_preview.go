@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"io"
@@ -57,11 +56,12 @@ type imagePreview struct {
 	messageID discord.MessageID
 
 	// kitty-mode draw state (unused in half-block mode).
-	img      image.Image // decoded image to draw, nil when none
-	dirty    bool        // image or geometry changed; re-place on next View
-	placedID uint32      // kitty image id currently on screen, 0 if none
-	nextID   uint32      // monotonic id source for new placements
-	lastRect [4]int      // last InnerRect the image was placed at {x,y,w,h}
+	img          image.Image // decoded image to draw, nil when none
+	dirty        bool        // image changed; re-transmit on next View
+	placedID     uint32      // kitty image id currently transmitted, 0 if none
+	nextID       uint32      // monotonic id source for new placements
+	lastRect     [4]int      // last InnerRect the placement was sized to {x,y,w,h}
+	kCols, kRows int         // placeholder grid size the current image was placed at
 }
 
 // imagePreview is added to a flex as a passive display pane.
@@ -153,67 +153,102 @@ func (ip *imagePreview) clear() {
 	ip.SetLines([]tview.Line{tview.NewLine(tview.NewSegment("No image", tcell.StyleDefault.Dim(true)))})
 }
 
-// View draws the pane box, then in kitty mode composites the real image over
-// the blank interior. The half-block path is unaffected (returns immediately).
+// View draws the pane box, then in kitty mode materializes the image as Unicode
+// placeholder cells over the (blank) interior. The half-block path is unaffected
+// (returns immediately after the box is drawn).
+//
+// The image bytes are transmitted once as a virtual placement (kittyVirtualTransmit,
+// written to the pty); the placement is then materialized by writing
+// kittyPlaceholderRune cells via screen.SetContent. Because the placement rides
+// on ordinary cells that tcell owns, it survives redraws and — unlike absolute
+// cursor placement — is forwarded and re-rendered by multiplexers (tmux/herdr).
 func (ip *imagePreview) View(screen tcell.Screen) {
 	ip.TextView.View(screen)
 	if ip.protocol != graphicsKitty {
 		return
 	}
 
-	x, y, w, h := ip.InnerRect()
 	if ip.img == nil {
+		// Status text ("No image"/"Failed") was drawn by TextView.View; make
+		// sure any previously transmitted image is freed.
 		ip.deleteKitty()
 		return
 	}
+
+	ip.ensureKittyTransmitted()
+	ip.drawKittyPlaceholders(screen)
+}
+
+// ensureKittyTransmitted (re)sends the image as a virtual placement when the
+// image or the pane geometry has changed, and records the placeholder grid size.
+func (ip *imagePreview) ensureKittyTransmitted() {
+	x, y, w, h := ip.InnerRect()
 	if w <= 0 || h <= 0 {
 		return
 	}
 
-	// Re-transmit only when the image or geometry changed. Between changes the
-	// terminal keeps the placed image, and tcell does not touch these cells, so
-	// nothing needs re-emitting (avoids per-frame flicker and overhead).
 	rect := [4]int{x, y, w, h}
 	if !ip.dirty && ip.placedID != 0 && rect == ip.lastRect {
 		return
 	}
-	ip.lastRect = rect
-	ip.dirty = false
-	ip.placeKitty(x, y, w, h)
-}
 
-// placeKitty transmits ip.img into the w×h cell rectangle at (x,y), deleting any
-// previously placed image first. Written straight to the terminal (tcell can't
-// see graphics); the cursor is saved/moved/restored so tcell's own cursor
-// bookkeeping is undisturbed.
-func (ip *imagePreview) placeKitty(x, y, w, h int) {
 	cols, rows := fitCells(ip.img.Bounds().Dx(), ip.img.Bounds().Dy(), w, h)
+	// Row/column numbers are encoded with a fixed diacritic table, so the grid
+	// cannot exceed its length.
+	cols = min(cols, len(kittyDiacritics))
+	rows = min(rows, len(kittyDiacritics))
+
+	if ip.placedID != 0 {
+		if _, err := previewOut.Write(kittyDelete(ip.placedID)); err != nil {
+			slog.Error("failed to delete previous kitty image", "err", err)
+		}
+		ip.placedID = 0
+	}
 
 	ip.nextID++
 	id := ip.nextID
-	seq, err := kittyPlacement(id, ip.img, cols, rows)
+	seq, err := kittyVirtualTransmit(id, ip.img, cols, rows)
 	if err != nil {
 		slog.Error("failed to encode kitty image", "err", err)
 		return
 	}
-
-	var buf bytes.Buffer
-	if ip.placedID != 0 {
-		buf.Write(kittyDelete(ip.placedID))
-	}
-	buf.WriteString("\x1b7")                   // save cursor position
-	fmt.Fprintf(&buf, "\x1b[%d;%dH", y+1, x+1) // move to pane origin (1-based)
-	buf.Write(seq)
-	buf.WriteString("\x1b8") // restore cursor position
-
-	if _, err := previewOut.Write(buf.Bytes()); err != nil {
+	if _, err := previewOut.Write(seq); err != nil {
 		slog.Error("failed to write kitty image", "err", err)
 		return
 	}
+
 	ip.placedID = id
+	ip.kCols, ip.kRows = cols, rows
+	ip.lastRect = rect
+	ip.dirty = false
 }
 
-// deleteKitty removes the on-screen image, if any. Safe to call when nothing is
+// drawKittyPlaceholders writes the U+10EEEE placeholder cells for the current
+// placement into the pane interior. Each cell carries row/column diacritics and
+// a foreground color encoding the image id, which is how the terminal knows
+// which image and which piece of it to composite there.
+func (ip *imagePreview) drawKittyPlaceholders(screen tcell.Screen) {
+	if ip.placedID == 0 {
+		return
+	}
+
+	x, y, w, h := ip.InnerRect()
+	r, g, b := kittyIDColor(ip.placedID)
+	style := tcell.StyleDefault.Foreground(tcell.NewRGBColor(r, g, b))
+
+	for row := 0; row < ip.kRows && row < h; row++ {
+		for col := 0; col < ip.kCols && col < w; col++ {
+			screen.SetContent(
+				x+col, y+row,
+				kittyPlaceholderRune,
+				[]rune{kittyDiacritics[row], kittyDiacritics[col]},
+				style,
+			)
+		}
+	}
+}
+
+// deleteKitty frees the transmitted image, if any. Safe to call when nothing is
 // placed and outside the draw loop (e.g. when the pane is toggled off).
 func (ip *imagePreview) deleteKitty() {
 	if ip.placedID == 0 {

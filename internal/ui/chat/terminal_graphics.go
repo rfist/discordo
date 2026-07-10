@@ -12,29 +12,30 @@ const (
 	graphicsKitty
 )
 
-// insideMultiplexer reports whether we are running under a terminal multiplexer
-// that does not forward graphics escape sequences to the host terminal. Such a
-// multiplexer sits between the app and the terminal, so kitty images written to
-// the pty never reach it (they render blank), making half-blocks the safe
-// choice. Covers tmux/screen and herdr; extend as needed.
-func insideMultiplexer(env func(string) string) bool {
+// inTmux reports whether we are under tmux/screen, which do not forward or
+// composite graphics escape sequences (absent passthrough, which we do not
+// attempt). Images written to the pty never reach the host terminal there.
+func inTmux(env func(string) string) bool {
 	return env("TMUX") != "" ||
-		env("HERDR_ENV") != "" ||
-		env("HERDR_PANE_ID") != "" ||
 		strings.HasPrefix(env("TERM"), "screen") ||
 		strings.HasPrefix(env("TERM"), "tmux")
 }
 
-// kittyCapable reports whether the terminal described by env supports the kitty
-// graphics protocol. Detection is environment-only (no terminal query), so it
-// is synchronous and side-effect free; the terminals that implement kitty
-// graphics all advertise themselves through these variables.
-//
-// Multiplexers are treated as incapable: kitty graphics only survive inside a
-// multiplexer with explicit passthrough and correct pane tracking, which we do
-// not attempt.
+// inHerdr reports whether we are inside the herdr multiplexer. Unlike tmux,
+// herdr composites kitty graphics itself, but only via Unicode-placeholder
+// placement (which the preview uses in kitty mode) and only when its own host
+// terminal supports graphics.
+func inHerdr(env func(string) string) bool {
+	return env("HERDR_ENV") != "" || env("HERDR_PANE_ID") != ""
+}
+
+// kittyCapable reports whether "auto" should select the kitty protocol.
+// Detection is environment-only (no terminal query). It is deliberately
+// conservative inside multiplexers: tmux/screen cannot show graphics at all,
+// and inside herdr the host terminal is unknown from here, so auto stays on
+// half-blocks (an explicit protocol = "kitty" still enables it in herdr).
 func kittyCapable(env func(string) string) bool {
-	if insideMultiplexer(env) {
+	if inTmux(env) || inHerdr(env) {
 		return false
 	}
 
@@ -64,10 +65,10 @@ func kittyCapable(env func(string) string) bool {
 func resolveGraphicsProtocol(pref string, env func(string) string) graphicsProtocol {
 	switch strings.ToLower(strings.TrimSpace(pref)) {
 	case "kitty":
-		// Explicit opt-in: honor it even if terminal detection is unsure, but
-		// never inside a multiplexer where the sequences cannot reach the
-		// terminal (it would just render a blank pane).
-		if insideMultiplexer(env) {
+		// Explicit opt-in: honor it even where detection is unsure, including
+		// inside herdr (it composites Unicode-placeholder images). Only tmux/
+		// screen force half-blocks, since they cannot show graphics at all.
+		if inTmux(env) {
 			return graphicsHalfBlock
 		}
 		return graphicsKitty

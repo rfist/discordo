@@ -13,16 +13,21 @@ import (
 // mandated by the graphics protocol.
 const kittyChunkSize = 4096
 
-// kittyPlacement builds a kitty graphics "transmit and display" escape sequence
-// that renders img scaled to cols×rows terminal cells, tagged with id so a
-// later kittyDelete can remove it. The image is PNG-encoded and its base64
-// payload is split into protocol-legal chunks.
+// kittyPlaceholderRune (U+10EEEE) is the Unicode placeholder: cells containing
+// it, colored with an image id and annotated with row/column diacritics, tell a
+// kitty-graphics terminal where to composite a virtual image placement.
+const kittyPlaceholderRune rune = 0x10EEEE
+
+// kittyVirtualTransmit builds the escape sequence that PNG-encodes img and
+// creates a *virtual* placement (U=1) of cols×rows cells under image id. Unlike
+// a normal placement, nothing is drawn at the cursor; the image is materialized
+// later by printing kittyPlaceholderRune cells (see drawKittyPlaceholders). This
+// is the multiplexer-safe path: the placement rides on ordinary text cells that
+// tcell manages and a multiplexer (tmux/herdr) forwards and re-renders.
 //
-// q=2 suppresses the terminal's success/error acknowledgements so they are not
-// injected into the input stream (tcell would otherwise read them as key
-// events). The caller is responsible for positioning the cursor at the target
-// cell before writing these bytes.
-func kittyPlacement(id uint32, img image.Image, cols, rows int) ([]byte, error) {
+// q=2 suppresses the terminal's acknowledgements so they are not injected into
+// tcell's input stream. The payload is split into protocol-legal chunks.
+func kittyVirtualTransmit(id uint32, img image.Image, cols, rows int) ([]byte, error) {
 	var pngBuf bytes.Buffer
 	if err := png.Encode(&pngBuf, img); err != nil {
 		return nil, err
@@ -39,10 +44,8 @@ func kittyPlacement(id uint32, img image.Image, cols, rows int) ([]byte, error) 
 
 		out.WriteString("\x1b_G")
 		if i == 0 {
-			// First (or only) chunk carries the full control block.
-			// C=1 keeps the cursor put (kitty otherwise advances it past the
-			// image, which can scroll the screen when placing near the bottom).
-			fmt.Fprintf(&out, "a=T,f=100,q=2,C=1,i=%d,c=%d,r=%d,m=%d", id, cols, rows, boolToInt(!last))
+			// a=T + U=1: transmit and create a virtual placement of c×r cells.
+			fmt.Fprintf(&out, "a=T,U=1,f=100,q=2,i=%d,c=%d,r=%d,m=%d", id, cols, rows, boolToInt(!last))
 		} else {
 			fmt.Fprintf(&out, "m=%d", boolToInt(!last))
 		}
@@ -51,6 +54,13 @@ func kittyPlacement(id uint32, img image.Image, cols, rows int) ([]byte, error) 
 		out.WriteString("\x1b\\")
 	}
 	return out.Bytes(), nil
+}
+
+// kittyIDColor encodes a 24-bit image id as the r,g,b of a placeholder cell's
+// foreground color, which is how the terminal learns which image a placeholder
+// cell belongs to. Ids must stay within 24 bits.
+func kittyIDColor(id uint32) (r, g, b int32) {
+	return int32((id >> 16) & 0xFF), int32((id >> 8) & 0xFF), int32(id & 0xFF)
 }
 
 // kittyDelete builds a sequence that removes the image with the given id along

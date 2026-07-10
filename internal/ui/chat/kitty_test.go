@@ -19,8 +19,8 @@ func solidImage(w, h int) image.Image {
 	return img
 }
 
-func TestKittyPlacementSingleChunk(t *testing.T) {
-	seq, err := kittyPlacement(7, solidImage(2, 2), 12, 6)
+func TestKittyVirtualTransmitSingleChunk(t *testing.T) {
+	seq, err := kittyVirtualTransmit(7, solidImage(2, 2), 12, 6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,8 @@ func TestKittyPlacementSingleChunk(t *testing.T) {
 	if !strings.HasSuffix(s, "\x1b\\") {
 		t.Errorf("missing string terminator")
 	}
-	for _, want := range []string{"a=T", "f=100", "q=2", "C=1", "i=7", "c=12", "r=6", "m=0"} {
+	// U=1 (virtual placement) is what makes this multiplexer-safe.
+	for _, want := range []string{"a=T", "U=1", "f=100", "q=2", "i=7", "c=12", "r=6", "m=0"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("control block missing %q", want)
 		}
@@ -55,7 +56,7 @@ func TestKittyPlacementSingleChunk(t *testing.T) {
 	}
 }
 
-func TestKittyPlacementChunking(t *testing.T) {
+func TestKittyVirtualTransmitChunking(t *testing.T) {
 	// A large, noisy image forces a multi-chunk payload.
 	img := image.NewRGBA(image.Rect(0, 0, 200, 200))
 	for y := range 200 {
@@ -64,7 +65,7 @@ func TestKittyPlacementChunking(t *testing.T) {
 		}
 	}
 
-	seq, err := kittyPlacement(1, img, 40, 20)
+	seq, err := kittyVirtualTransmit(1, img, 40, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +85,42 @@ func TestKittyPlacementChunking(t *testing.T) {
 	// Only the first chunk carries the control block.
 	if strings.Count(s, "a=T") != 1 {
 		t.Errorf("control block should appear once, got %d", strings.Count(s, "a=T"))
+	}
+}
+
+func TestKittyIDColor(t *testing.T) {
+	cases := []struct {
+		id            uint32
+		wr, wg, wb    int32
+	}{
+		{1, 0, 0, 1},
+		{0x010203, 1, 2, 3},
+		{0xFFFFFF, 255, 255, 255},
+	}
+	for _, tc := range cases {
+		r, g, b := kittyIDColor(tc.id)
+		if r != tc.wr || g != tc.wg || b != tc.wb {
+			t.Errorf("kittyIDColor(%#x) = (%d,%d,%d), want (%d,%d,%d)", tc.id, r, g, b, tc.wr, tc.wg, tc.wb)
+		}
+	}
+}
+
+func TestKittyDiacriticsTable(t *testing.T) {
+	if len(kittyDiacritics) != 297 {
+		t.Fatalf("expected 297 diacritics, got %d", len(kittyDiacritics))
+	}
+	if kittyDiacritics[0] != 0x0305 {
+		t.Errorf("first diacritic = %#x, want 0x0305", kittyDiacritics[0])
+	}
+	if kittyDiacritics[len(kittyDiacritics)-1] != 0x1D244 {
+		t.Errorf("last diacritic = %#x, want 0x1D244", kittyDiacritics[len(kittyDiacritics)-1])
+	}
+	seen := make(map[rune]bool, len(kittyDiacritics))
+	for i, r := range kittyDiacritics {
+		if seen[r] {
+			t.Errorf("duplicate diacritic %#x at index %d", r, i)
+		}
+		seen[r] = true
 	}
 }
 

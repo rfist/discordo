@@ -45,7 +45,7 @@ func TestResolveGraphicsProtocol(t *testing.T) {
 		{"unknown pref defaults to halfblock", "banana", map[string]string{}, graphicsHalfBlock},
 		{"kitty forced without detection", "kitty", map[string]string{}, graphicsKitty},
 		{"kitty forced but tmux downgrades", "kitty", map[string]string{"TMUX": "/tmp/tmux"}, graphicsHalfBlock},
-		{"kitty forced but herdr downgrades", "kitty", map[string]string{"HERDR_ENV": "1"}, graphicsHalfBlock},
+		{"kitty forced is honored in herdr", "kitty", map[string]string{"HERDR_ENV": "1"}, graphicsKitty},
 		{"auto with capable terminal", "auto", map[string]string{"TERM": "xterm-kitty"}, graphicsKitty},
 		{"auto with incapable terminal", "auto", map[string]string{"TERM": "xterm-256color"}, graphicsHalfBlock},
 		{"auto inside herdr on ghostty falls back", "auto", map[string]string{"TERM_PROGRAM": "ghostty", "HERDR_ENV": "1"}, graphicsHalfBlock},
