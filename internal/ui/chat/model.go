@@ -274,6 +274,15 @@ func (m *Model) Update(msg tview.Msg) tview.Cmd {
 		case *gateway.MessageDeleteEvent:
 			m.onMessageDelete(eventMsg)
 
+		case *gateway.MessageReactionAddEvent:
+			m.onMessageReactionAdd(eventMsg)
+		case *gateway.MessageReactionRemoveEvent:
+			m.onMessageReactionRemove(eventMsg)
+		case *gateway.MessageReactionRemoveAllEvent:
+			m.onMessageReactionRemoveAll(eventMsg)
+		case *gateway.MessageReactionRemoveEmojiEvent:
+			m.onMessageReactionRemoveEmoji(eventMsg)
+
 		case *gateway.GuildMembersChunkEvent:
 			return tview.Batch(m.onGuildMembersChunk(eventMsg), m.listen())
 		case *gateway.GuildMemberRemoveEvent:
