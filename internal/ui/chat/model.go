@@ -149,9 +149,10 @@ func (m *Model) buildLayout() {
 	// middleFlex lays the message list and the optional image preview pane out
 	// horizontally (flex default direction is column = side-by-side, matching
 	// mainFlex). The preview is only an item when toggled on.
-	m.middleFlex.AddItem(m.messagesList, 0, 2, false)
+	m.middleFlex.AddItem(m.messagesList, 0, 1, false)
 	if m.imagePreviewVisible {
-		// Preview takes ~1/3 of the middle row so the message list stays usable.
+		// Preview takes half the middle row: wider pane = more half-block
+		// columns = higher effective resolution, at the cost of message width.
 		m.middleFlex.AddItem(m.imagePreview, 0, 1, false)
 	}
 

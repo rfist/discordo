@@ -11,7 +11,9 @@ editor = "default"
 status = "default"
 
 hide_blocked_users = true
-show_attachment_links = true
+# When false, the message list shows just the attachment filename (the full URL
+# is still reachable via the open/yank-url keybinds and the image preview pane).
+show_attachment_links = false
 
 # Max members to be in the mention autocomplete suggestions list
 # Note: Use autocomplete_limit = 0 to disable.
